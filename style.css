@@ -200,7 +200,8 @@ body {
 
 @media (max-width: 480px) {
   .input-row .input-group {
-    min-width: 100%;
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
   }
 }
 
