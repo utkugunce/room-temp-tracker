@@ -217,8 +217,24 @@ input[type="date"] {
   border-radius: 8px;
   outline: none;
   transition: var(--transition);
-  width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Direct children of input-group fill full width */
+.input-group > input[type="number"],
+.input-group > input[type="time"],
+.input-group > input[type="date"] {
+  width: 100%;
+}
+
+/* Inputs inside an inner flex wrapper (e.g. alongside a button) use flex sizing */
+.input-group div input[type="number"],
+.input-group div input[type="time"],
+.input-group div input[type="date"] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
 }
 
 input[type="number"]:focus,
