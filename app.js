@@ -7,6 +7,7 @@ if ('serviceWorker' in navigator) {
 
 // Data Store
 let logs = JSON.parse(localStorage.getItem('temp_logs')) || [];
+let countdownInterval = null;
 
 // Notification Permission Request
 function requestNotificationPermission() {
@@ -242,12 +243,21 @@ function renderActiveLog() {
   } else if (todayLog.openTemp === null) {
     // Step 2: Window opened, waiting/prompting for 30 minutes later temp
     const targetTime = get30MinsLaterTimeString(todayLog.closedTime);
+    
+    // Clear any previous interval to prevent memory leaks
+    if (countdownInterval) clearInterval(countdownInterval);
+
     container.innerHTML = `
       <div class="logging-flow">
         <div class="waiting-state">
-          <div class="waiting-timer">
-            <span>⏰</span>
-            <strong>Cam Açıldı! (Saat ${todayLog.closedTime})</strong>
+          <div class="waiting-timer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span>⏰</span>
+              <strong>Cam Açıldı! (Saat ${todayLog.closedTime})</strong>
+            </div>
+            <div id="liveCountdown" style="font-family: var(--font-title); font-weight: 800; font-size: 1.1rem; color: var(--accent-cool); background: rgba(6, 182, 212, 0.1); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(6, 182, 212, 0.2);">
+              --:--
+            </div>
           </div>
           <div class="waiting-info">
             <span>Hedef derece ölçüm saati: <strong>${targetTime}</strong></span>
@@ -272,6 +282,38 @@ function renderActiveLog() {
         </form>
       </div>
     `;
+
+    // Live countdown calculations
+    const [hours, minutes] = todayLog.closedTime.split(':').map(Number);
+    const [year, month, day] = todayLog.date.split('-').map(Number);
+    const targetDate = new Date(year, month - 1, day, hours, minutes + 30, 0, 0);
+
+    function updateCountdownDisplay() {
+      const countdownEl = document.getElementById('liveCountdown');
+      if (!countdownEl) {
+        clearInterval(countdownInterval);
+        return;
+      }
+      
+      const now = new Date();
+      const diffMs = targetDate.getTime() - now.getTime();
+      
+      if (diffMs <= 0) {
+        countdownEl.textContent = 'Ölçüm Vakti! 🌡️';
+        countdownEl.style.color = 'var(--accent-success)';
+        countdownEl.style.background = 'rgba(16, 185, 129, 0.1)';
+        countdownEl.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+        clearInterval(countdownInterval);
+      } else {
+        const totalSecs = Math.floor(diffMs / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        countdownEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+      }
+    }
+
+    updateCountdownDisplay();
+    countdownInterval = setInterval(updateCountdownDisplay, 1000);
 
     document.getElementById('cancelTodayBtn').addEventListener('click', () => {
       if (confirm('Bugünkü yarım kalan kaydı silmek istediğine emin misin?')) {
