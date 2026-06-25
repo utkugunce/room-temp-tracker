@@ -1,4 +1,4 @@
-const CACHE_NAME = 'temp-tracker-v1';
+const CACHE_NAME = 'temp-tracker-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS);
@@ -18,6 +19,7 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
+  self.clients.claim();
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -33,8 +35,16 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request);
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(e.request).then((cachedResponse) => {
+        const fetchedResponse = fetch(e.request).then((networkResponse) => {
+          if (networkResponse.status === 200) {
+            cache.put(e.request, networkResponse.clone());
+          }
+          return networkResponse;
+        }).catch(() => null);
+        return cachedResponse || fetchedResponse;
+      });
     })
   );
 });

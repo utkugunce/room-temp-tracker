@@ -189,10 +189,18 @@ body {
 .input-row {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .input-row .input-group {
   flex: 1;
+  min-width: 120px;
+}
+
+@media (max-width: 480px) {
+  .input-row .input-group {
+    min-width: 100%;
+  }
 }
 
 input[type="number"],
