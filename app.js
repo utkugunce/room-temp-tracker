@@ -8,6 +8,103 @@ if ('serviceWorker' in navigator) {
 // Data Store
 let logs = JSON.parse(localStorage.getItem('temp_logs')) || [];
 
+// Notification Permission Request
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(permission => {
+      console.log('Notification permission:', permission);
+    });
+  }
+}
+
+// Schedule Notification (1 hour later)
+function scheduleNotification(closedTimeStr) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+
+  // Save the target timestamp in localStorage to prevent losing it if app restarts
+  const now = new Date();
+  const [hours, minutes] = closedTimeStr.split(':').map(Number);
+  const targetDate = new Date();
+  targetDate.setHours(hours + 1, minutes, 0, 0);
+
+  // If target date is in the past (e.g. crossed midnight), add a day
+  if (targetDate < now) {
+    targetDate.setDate(targetDate.getDate() + 1);
+  }
+
+  const delayMs = targetDate.getTime() - now.getTime();
+
+  if (delayMs > 0) {
+    localStorage.setItem('scheduled_notification_time', targetDate.getTime());
+    
+    // Set a client-side timeout in case app stays open
+    setTimeout(() => {
+      triggerLocalNotification();
+    }, delayMs);
+
+    // Also tell service worker to schedule it (some browsers keep SW alive longer or trigger on wake)
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SCHEDULE_NOTIFICATION',
+        delay: delayMs
+      });
+    }
+  }
+}
+
+function triggerLocalNotification() {
+  const lastNotified = localStorage.getItem('last_notified_time');
+  const todayStr = getTodayDateString();
+  
+  // Prevent duplicate notifications for the same day
+  if (lastNotified === todayStr) return;
+
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(registration => {
+      registration.showNotification('Derece Ölçüm Vakti! 🌡️', {
+        body: 'Camı açalı 1 saat oldu. Yeni oda sıcaklığını girmek için dokun.',
+        icon: './icon-192.png',
+        badge: './icon-192.png',
+        vibrate: [200, 100, 200],
+        tag: 'temp-measurement-reminder',
+        renotify: true
+      });
+      localStorage.setItem('last_notified_time', todayStr);
+    });
+  } else {
+    new Notification('Derece Ölçüm Vakti! 🌡️', {
+      body: 'Camı açalı 1 saat oldu. Yeni oda sıcaklığını girmek için dokun.',
+      icon: './icon-192.png'
+    });
+    localStorage.setItem('last_notified_time', todayStr);
+  }
+}
+
+// Check if we missed a scheduled notification while app was closed
+function checkMissedNotifications() {
+  const scheduledTime = localStorage.getItem('scheduled_notification_time');
+  if (scheduledTime) {
+    const now = new Date().getTime();
+    if (now >= parseInt(scheduledTime, 10)) {
+      // It's time or past time
+      const todayStr = getTodayDateString();
+      const todayLog = logs.find(l => l.date === todayStr);
+      // Only notify if openTemp hasn't been logged yet
+      if (todayLog && todayLog.openTemp === null) {
+        triggerLocalNotification();
+      }
+      localStorage.removeItem('scheduled_notification_time');
+    }
+  }
+}
+
+// Run check on startup
+checkMissedNotifications();
+setInterval(checkMissedNotifications, 30000); // Check every 30 seconds
+
+
 // Helper: Format Date
 function getTodayDateString() {
   const d = new Date();
@@ -125,6 +222,9 @@ function renderActiveLog() {
       const closedTemp = parseFloat(document.getElementById('closedTemp').value);
       const closedTime = document.getElementById('closedTime').value;
       
+      // Request notification permission if not already decided
+      requestNotificationPermission();
+
       logs.push({
         date: todayStr,
         closedTemp,
@@ -133,6 +233,9 @@ function renderActiveLog() {
         openTime: null
       });
       saveLogs();
+      
+      // Schedule notification (1 hour later)
+      scheduleNotification(closedTime);
     });
 
   } else if (todayLog.openTemp === null) {

@@ -38,3 +38,19 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SCHEDULE_NOTIFICATION') {
+    setTimeout(() => {
+      self.registration.showNotification('Derece Ölçüm Vakti! 🌡️', {
+        body: 'Camı açalı 1 saat oldu. Yeni oda sıcaklığını girmek için dokun.',
+        icon: './icon-192.png',
+        badge: './icon-192.png',
+        vibrate: [200, 100, 200],
+        tag: 'temp-measurement-reminder',
+        renotify: true
+      });
+    }, event.data.delay);
+  }
+});
+
