@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "Room temperature tracker PWA",
   "dependencies": {
-    "node-mihome": "^0.5.5"
+    "node-mihome": "latest"
   }
 }
