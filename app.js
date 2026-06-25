@@ -17,7 +17,7 @@ function requestNotificationPermission() {
   }
 }
 
-// Schedule Notification (1 hour later)
+// Schedule Notification (30 minutes later)
 function scheduleNotification(closedTimeStr) {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     return;
@@ -27,7 +27,7 @@ function scheduleNotification(closedTimeStr) {
   const now = new Date();
   const [hours, minutes] = closedTimeStr.split(':').map(Number);
   const targetDate = new Date();
-  targetDate.setHours(hours + 1, minutes, 0, 0);
+  targetDate.setHours(hours, minutes + 30, 0, 0);
 
   // If target date is in the past (e.g. crossed midnight), add a day
   if (targetDate < now) {
@@ -64,7 +64,7 @@ function triggerLocalNotification() {
   if (navigator.serviceWorker.controller) {
     navigator.serviceWorker.ready.then(registration => {
       registration.showNotification('Derece Ölçüm Vakti! 🌡️', {
-        body: 'Camı açalı 1 saat oldu. Yeni oda sıcaklığını girmek için dokun.',
+        body: 'Camı açalı 30 dakika oldu. Yeni oda sıcaklığını girmek için dokun.',
         icon: './icon-192.png',
         badge: './icon-192.png',
         vibrate: [200, 100, 200],
@@ -75,7 +75,7 @@ function triggerLocalNotification() {
     });
   } else {
     new Notification('Derece Ölçüm Vakti! 🌡️', {
-      body: 'Camı açalı 1 saat oldu. Yeni oda sıcaklığını girmek için dokun.',
+      body: 'Camı açalı 30 dakika oldu. Yeni oda sıcaklığını girmek için dokun.',
       icon: './icon-192.png'
     });
     localStorage.setItem('last_notified_time', todayStr);
@@ -126,10 +126,11 @@ function getCurrentTimeString() {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function getOneHourLaterTimeString(timeStr) {
+function get30MinsLaterTimeString(timeStr) {
   const [hours, minutes] = timeStr.split(':').map(Number);
-  const newHours = (hours + 1) % 24;
-  return `${String(newHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  const d = new Date();
+  d.setHours(hours, minutes + 30, 0, 0);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 // Save & Load
@@ -234,13 +235,13 @@ function renderActiveLog() {
       });
       saveLogs();
       
-      // Schedule notification (1 hour later)
+      // Schedule notification (30 minutes later)
       scheduleNotification(closedTime);
     });
 
   } else if (todayLog.openTemp === null) {
-    // Step 2: Window opened, waiting/prompting for 1 hour later temp
-    const targetTime = getOneHourLaterTimeString(todayLog.closedTime);
+    // Step 2: Window opened, waiting/prompting for 30 minutes later temp
+    const targetTime = get30MinsLaterTimeString(todayLog.closedTime);
     container.innerHTML = `
       <div class="logging-flow">
         <div class="waiting-state">
@@ -255,11 +256,11 @@ function renderActiveLog() {
         </div>
         <form id="completeLogForm" class="logging-flow">
           <p style="color: var(--text-secondary); font-size: 0.95rem;">
-            Camı açalı 1 saat olduysa (veya ölçüm aldıysan) dereceyi gir:
+            Camı açalı 30 dakika olduysa (veya ölçüm aldıysan) dereceyi gir:
           </p>
           <div class="input-row">
             <div class="input-group">
-              <label for="openTemp">1 Saat Sonraki Sıcaklık (°C)</label>
+              <label for="openTemp">30 Dakika Sonraki Sıcaklık (°C)</label>
               <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus>
             </div>
             <div class="input-group">
