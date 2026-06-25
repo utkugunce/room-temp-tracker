@@ -95,6 +95,7 @@ body {
   padding: 24px;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   transition: var(--transition);
+  overflow: hidden;
 }
 
 .card:hover {
@@ -215,6 +216,8 @@ input[type="date"] {
   border-radius: 8px;
   outline: none;
   transition: var(--transition);
+  width: 100%;
+  max-width: 100%;
 }
 
 input[type="number"]:focus,

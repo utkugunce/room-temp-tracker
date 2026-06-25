@@ -328,7 +328,7 @@ function renderActiveLog() {
         <div class="input-row">
           <div class="input-group" style="flex: 1.5;">
             <label for="closedTemp">Sıcaklık (°C)</label>
-            <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus style="width: 100%;">
+            <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus>
           </div>
           <div class="input-group" style="flex: 1.5;">
             <label for="closedHum">Nem (%)</label>
@@ -339,7 +339,7 @@ function renderActiveLog() {
           </div>
           <div class="input-group" style="flex: 1;">
             <label for="closedTime">Giriş Saati</label>
-            <input type="time" id="closedTime" value="${getCurrentTimeString()}" required style="width: 100%;">
+            <input type="time" id="closedTime" value="${getCurrentTimeString()}" required>
           </div>
         </div>
         <button type="submit" class="btn">🚀 Kaydet ve Camı Aç</button>
@@ -408,7 +408,7 @@ function renderActiveLog() {
           <div class="input-row">
             <div class="input-group" style="flex: 1.5;">
               <label for="openTemp">Sıcaklık (°C)</label>
-              <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus style="width: 100%;">
+              <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus>
             </div>
             <div class="input-group" style="flex: 1.5;">
               <label for="openHum">Nem (%)</label>
@@ -419,7 +419,7 @@ function renderActiveLog() {
             </div>
             <div class="input-group" style="flex: 1;">
               <label for="openTime">Ölçüm Saati</label>
-              <input type="time" id="openTime" value="${getCurrentTimeString()}" required style="width: 100%;">
+              <input type="time" id="openTime" value="${getCurrentTimeString()}" required>
             </div>
           </div>
           <button type="submit" class="btn">✓ Günü Kapat</button>
