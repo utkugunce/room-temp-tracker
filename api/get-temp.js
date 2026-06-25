@@ -1,4 +1,12 @@
-const mihome = require('node-mihome');
+const { miCloudProtocol, miioProtocol, aqaraProtocol } = require('node-mihome');
+
+// Initialize protocols on load
+try {
+  miioProtocol.init();
+  aqaraProtocol.init();
+} catch (e) {
+  console.log('Protocol init info:', e.message);
+}
 
 module.exports = async (req, res) => {
   // CORS Headers
@@ -23,11 +31,11 @@ module.exports = async (req, res) => {
   try {
     const country = region || 'de'; // Default to Europe/Germany for Turkey
     
-    // Login to Xiaomi Cloud
-    await mihome.miio.login(username, password);
+    // Login to Xiaomi Cloud using the correct miCloudProtocol object
+    await miCloudProtocol.login(username, password);
 
     // Get list of devices
-    const devices = await mihome.miio.getDevices({ country });
+    const devices = await miCloudProtocol.getDevices(null, { country });
 
     // If no deviceId is provided, list all devices so the user can choose
     if (!deviceId) {
@@ -44,12 +52,12 @@ module.exports = async (req, res) => {
     // If deviceId is provided, read properties from MiCloud
     // Using Xiaomi Cloud MIoT API /miotspec/prop/get to fetch live state
     // Service ID (siid) 2, Property ID (piid) 1 is the standard for Temperature in Xiaomi BLE sensors
-    const response = await mihome.miCloud.request(country, '/miotspec/prop/get', {
+    const response = await miCloudProtocol.request('/miotspec/prop/get', {
       params: [
         { did: deviceId, siid: 2, piid: 1 }, // Temperature
         { did: deviceId, siid: 2, piid: 2 }  // Humidity
       ]
-    });
+    }, { country });
 
     // Check response and extract values
     if (response && response.list) {
