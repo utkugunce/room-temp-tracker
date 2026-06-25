@@ -334,7 +334,12 @@ function showXiaomiSettingsForm(targetInputId, buttonId) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Cihaz listesi alınamadı.');
+        console.error('Xiaomi error response details:', data);
+        let errMsg = data.error || 'Cihaz listesi alınamadı.';
+        if (data.details) {
+          errMsg += '\nDetaylar: ' + JSON.stringify(data.details);
+        }
+        throw new Error(errMsg);
       }
 
       const selectGroup = document.getElementById('xiaomiDeviceSelectGroup');

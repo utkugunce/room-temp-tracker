@@ -92,6 +92,12 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Xiaomi Cloud Error:', error);
+    if (error.response) {
+      return res.status(500).json({ 
+        error: error.message,
+        details: error.response
+      });
+    }
     return res.status(500).json({ error: error.message || 'Xiaomi Cloud authentication failed.' });
   }
 };
