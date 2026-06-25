@@ -194,191 +194,6 @@ async function readTemperatureFromBLE(targetInputId, buttonId) {
   }
 }
 
-// Xiaomi Cloud Reader for Thermometer
-async function readTemperatureFromXiaomi(targetInputId, buttonId) {
-  const btn = document.getElementById(buttonId);
-  const input = document.getElementById(targetInputId);
-  const originalText = btn.textContent;
-
-  const username = localStorage.getItem('xiaomi_username');
-  const password = localStorage.getItem('xiaomi_password');
-  const region = localStorage.getItem('xiaomi_region') || 'de';
-  const deviceId = localStorage.getItem('xiaomi_device_id');
-
-  if (!username || !password || !deviceId) {
-    showXiaomiSettingsForm(targetInputId, buttonId);
-    return;
-  }
-
-  try {
-    btn.textContent = '⏳';
-    btn.disabled = true;
-
-    const response = await fetch('/api/get-temp', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ username, password, region, deviceId })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Buluttan okuma başarısız.');
-    }
-
-    if (data.temperature !== undefined) {
-      input.value = parseFloat(data.temperature).toFixed(1);
-      btn.textContent = '✅';
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }, 2000);
-    } else {
-      throw new Error('Sıcaklık verisi alınamadı.');
-    }
-  } catch (error) {
-    console.error('Xiaomi Bulut Hatası:', error);
-    alert('Xiaomi Bulut Hatası: ' + error.message);
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
-}
-
-// Show Xiaomi Settings Form Modal
-function showXiaomiSettingsForm(targetInputId, buttonId) {
-  let modal = document.getElementById('xiaomiSettingsModal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'xiaomiSettingsModal';
-    modal.className = 'modal-overlay';
-    document.body.appendChild(modal);
-  }
-
-  const savedUsername = localStorage.getItem('xiaomi_username') || '';
-  const savedRegion = localStorage.getItem('xiaomi_region') || 'de';
-
-  modal.innerHTML = `
-    <div class="modal-content card">
-      <h3 style="font-family: var(--font-title); font-weight: 700; font-size: 1.2rem; margin-bottom: 8px;">☁️ Xiaomi Home Bulut Bağlantısı</h3>
-      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
-        Termometre derecesini otomatik çekebilmek için Xiaomi hesabınızla giriş yapın. Bilgileriniz sadece tarayıcınızda güvenle saklanır.
-      </p>
-      <form id="xiaomiConfigForm" class="logging-flow">
-        <div class="input-group">
-          <label for="xiaomiUser">E-posta / Telefon / Mi ID</label>
-          <input type="text" id="xiaomiUser" value="${savedUsername}" placeholder="ornek@mail.com" required>
-        </div>
-        <div class="input-group">
-          <label for="xiaomiPass">Xiaomi Şifresi</label>
-          <input type="password" id="xiaomiPass" placeholder="••••••••" required>
-        </div>
-        <div class="input-group">
-          <label for="xiaomiRegion">Bölge (Server)</label>
-          <select id="xiaomiRegion" style="background: rgba(10, 8, 20, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 12px; border-radius: 8px; font-family: var(--font-body); outline: none;">
-            <option value="de" ${savedRegion === 'de' ? 'selected' : ''}>Avrupa / Türkiye (de)</option>
-            <option value="cn" ${savedRegion === 'cn' ? 'selected' : ''}>Çin (cn)</option>
-            <option value="us" ${savedRegion === 'us' ? 'selected' : ''}>Amerika (us)</option>
-            <option value="ru" ${savedRegion === 'ru' ? 'selected' : ''}>Rusya (ru)</option>
-            <option value="sg" ${savedRegion === 'sg' ? 'selected' : ''}>Singapur (sg)</option>
-          </select>
-        </div>
-        
-        <button type="button" id="xiaomiListDevicesBtn" class="btn btn-secondary btn-sm" style="margin-top: 8px;">🔍 Cihazları Tara</button>
-
-        <div class="input-group" id="xiaomiDeviceSelectGroup" style="display: none;">
-          <label for="xiaomiDeviceSelect">Termometre Cihazı Seçin</label>
-          <select id="xiaomiDeviceSelect" style="background: rgba(10, 8, 20, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 12px; border-radius: 8px; font-family: var(--font-body); outline: none;">
-            <!-- Devices will be listed here -->
-          </select>
-        </div>
-
-        <div style="display: flex; gap: 12px; margin-top: 16px;">
-          <button type="submit" id="xiaomiSaveConfigBtn" class="btn" style="flex: 1;" disabled>✓ Kaydet</button>
-          <button type="button" id="xiaomiCloseModalBtn" class="btn btn-secondary">İptal</button>
-        </div>
-      </form>
-    </div>
-  `;
-
-  modal.style.display = 'flex';
-
-  document.getElementById('xiaomiCloseModalBtn').addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-
-  const listBtn = document.getElementById('xiaomiListDevicesBtn');
-  listBtn.addEventListener('click', async () => {
-    const username = document.getElementById('xiaomiUser').value;
-    const password = document.getElementById('xiaomiPass').value;
-    const region = document.getElementById('xiaomiRegion').value;
-
-    if (!username || !password) {
-      alert('Lütfen kullanıcı adı ve şifrenizi girin.');
-      return;
-    }
-
-    listBtn.textContent = '⏳ Cihazlar Aranıyor...';
-    listBtn.disabled = true;
-
-    try {
-      const response = await fetch('/api/get-temp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password, region })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('Xiaomi error response details:', data);
-        let errMsg = data.error || 'Cihaz listesi alınamadı.';
-        if (data.details) {
-          errMsg += '\nDetaylar: ' + JSON.stringify(data.details);
-        }
-        throw new Error(errMsg);
-      }
-
-      const selectGroup = document.getElementById('xiaomiDeviceSelectGroup');
-      const select = document.getElementById('xiaomiDeviceSelect');
-      
-      if (data.devices && data.devices.length > 0) {
-        select.innerHTML = data.devices.map(d => `<option value="${d.id}">${d.name} (${d.model})</option>`).join('');
-        selectGroup.style.display = 'flex';
-        document.getElementById('xiaomiSaveConfigBtn').disabled = false;
-        listBtn.textContent = '🔍 Yeniden Tara';
-        listBtn.disabled = false;
-      } else {
-        alert('Hesabınızda hiçbir cihaz bulunamadı.');
-        listBtn.textContent = '🔍 Cihazları Tara';
-        listBtn.disabled = false;
-      }
-    } catch (err) {
-      alert('Hata: ' + err.message);
-      listBtn.textContent = '🔍 Cihazları Tara';
-      listBtn.disabled = false;
-    }
-  });
-
-  document.getElementById('xiaomiConfigForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const username = document.getElementById('xiaomiUser').value;
-    const password = document.getElementById('xiaomiPass').value;
-    const region = document.getElementById('xiaomiRegion').value;
-    const deviceId = document.getElementById('xiaomiDeviceSelect').value;
-
-    localStorage.setItem('xiaomi_username', username);
-    localStorage.setItem('xiaomi_password', password);
-    localStorage.setItem('xiaomi_region', region);
-    localStorage.setItem('xiaomi_device_id', deviceId);
-
-    modal.style.display = 'none';
-    alert('Xiaomi entegrasyon ayarları kaydedildi!');
-    
-    readTemperatureFromXiaomi(targetInputId, buttonId);
   });
 }
 
@@ -458,8 +273,7 @@ function renderActiveLog() {
             <label for="closedTemp">Sıcaklık (°C)</label>
             <div style="display: flex; gap: 8px; width: 100%;">
               <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus style="flex: 1; min-width: 0;">
-              <button type="button" id="bleReadClosedBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 BLE</button>
-              <button type="button" id="xiaomiReadClosedBtn" class="btn btn-secondary btn-sm" title="Xiaomi Bulutundan Oku">☁️ Bulut</button>
+              <button type="button" id="bleReadClosedBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>
             </div>
           </div>
           <div class="input-group" style="flex: 1;">
@@ -473,10 +287,6 @@ function renderActiveLog() {
 
     document.getElementById('bleReadClosedBtn').addEventListener('click', () => {
       readTemperatureFromBLE('closedTemp', 'bleReadClosedBtn');
-    });
-
-    document.getElementById('xiaomiReadClosedBtn').addEventListener('click', () => {
-      readTemperatureFromXiaomi('closedTemp', 'xiaomiReadClosedBtn');
     });
 
     document.getElementById('startLogForm').addEventListener('submit', (e) => {
@@ -533,8 +343,7 @@ function renderActiveLog() {
               <label for="openTemp">30 Dakika Sonraki Sıcaklık (°C)</label>
               <div style="display: flex; gap: 8px; width: 100%;">
                 <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus style="flex: 1; min-width: 0;">
-                <button type="button" id="bleReadOpenBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 BLE</button>
-                <button type="button" id="xiaomiReadOpenBtn" class="btn btn-secondary btn-sm" title="Xiaomi Bulutundan Oku">☁️ Bulut</button>
+                <button type="button" id="bleReadOpenBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>
               </div>
             </div>
             <div class="input-group" style="flex: 1;">
@@ -549,10 +358,6 @@ function renderActiveLog() {
 
     document.getElementById('bleReadOpenBtn').addEventListener('click', () => {
       readTemperatureFromBLE('openTemp', 'bleReadOpenBtn');
-    });
-
-    document.getElementById('xiaomiReadOpenBtn').addEventListener('click', () => {
-      readTemperatureFromXiaomi('openTemp', 'xiaomiReadOpenBtn');
     });
 
     // Live countdown calculations
