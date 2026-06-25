@@ -305,10 +305,22 @@ function renderActiveLog() {
   const container = document.getElementById('activeLogContainer');
   const todayStr = getTodayDateString();
   const todayLog = logs.find(l => l.date === todayStr);
+  const bleEnabled = localStorage.getItem('ble_enabled') === 'true';
+
+  let methodSelectorHtml = '';
+  if (!todayLog || todayLog.openTemp === null) {
+    methodSelectorHtml = `
+      <div class="method-selector">
+        <button type="button" class="method-btn ${!bleEnabled ? 'active' : ''}" id="methodManualBtn">✍️ Manuel Giriş</button>
+        <button type="button" class="method-btn ${bleEnabled ? 'active' : ''}" id="methodBleBtn">🔵 Bluetooth (BLE)</button>
+      </div>
+    `;
+  }
 
   if (!todayLog) {
     // Step 1: Start entry (Window Closed temp & humidity)
     container.innerHTML = `
+      ${methodSelectorHtml}
       <form id="startLogForm" class="logging-flow">
         <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 8px;">
           Eve geldin. Cam kapalıyken oda sıcaklığını, nemini ve saati kaydet:
@@ -322,7 +334,7 @@ function renderActiveLog() {
             <label for="closedHum">Nem (%)</label>
             <div style="display: flex; gap: 8px; width: 100%;">
               <input type="number" id="closedHum" step="1" placeholder="50" style="flex: 1; min-width: 0;">
-              <button type="button" id="bleReadClosedBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>
+              ${bleEnabled ? '<button type="button" id="bleReadClosedBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>' : ''}
             </div>
           </div>
           <div class="input-group" style="flex: 1;">
@@ -334,9 +346,11 @@ function renderActiveLog() {
       </form>
     `;
 
-    document.getElementById('bleReadClosedBtn').addEventListener('click', () => {
-      readSensorDataFromBLE('closedTemp', 'closedHum', 'bleReadClosedBtn');
-    });
+    if (bleEnabled) {
+      document.getElementById('bleReadClosedBtn').addEventListener('click', () => {
+        readSensorDataFromBLE('closedTemp', 'closedHum', 'bleReadClosedBtn');
+      });
+    }
 
     document.getElementById('startLogForm').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -370,6 +384,7 @@ function renderActiveLog() {
     if (countdownInterval) clearInterval(countdownInterval);
 
     container.innerHTML = `
+      ${methodSelectorHtml}
       <div class="logging-flow">
         <div class="waiting-state">
           <div class="waiting-timer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
@@ -399,7 +414,7 @@ function renderActiveLog() {
               <label for="openHum">Nem (%)</label>
               <div style="display: flex; gap: 8px; width: 100%;">
                 <input type="number" id="openHum" step="1" placeholder="45" style="flex: 1; min-width: 0;">
-                <button type="button" id="bleReadOpenBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>
+                ${bleEnabled ? '<button type="button" id="bleReadOpenBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>' : ''}
               </div>
             </div>
             <div class="input-group" style="flex: 1;">
@@ -412,9 +427,11 @@ function renderActiveLog() {
       </div>
     `;
 
-    document.getElementById('bleReadOpenBtn').addEventListener('click', () => {
-      readSensorDataFromBLE('openTemp', 'openHum', 'bleReadOpenBtn');
-    });
+    if (bleEnabled) {
+      document.getElementById('bleReadOpenBtn').addEventListener('click', () => {
+        readSensorDataFromBLE('openTemp', 'openHum', 'bleReadOpenBtn');
+      });
+    }
 
     // Live countdown calculations
     const [hours, minutes] = todayLog.closedTime.split(':').map(Number);
@@ -509,6 +526,20 @@ function renderActiveLog() {
         todayLog.openTime = null;
         saveLogs();
       }
+    });
+  }
+
+  // Bind method selectors if present
+  const manualBtn = document.getElementById('methodManualBtn');
+  const bleBtn = document.getElementById('methodBleBtn');
+  if (manualBtn && bleBtn) {
+    manualBtn.addEventListener('click', () => {
+      localStorage.setItem('ble_enabled', 'false');
+      renderActiveLog();
+    });
+    bleBtn.addEventListener('click', () => {
+      localStorage.setItem('ble_enabled', 'true');
+      renderActiveLog();
     });
   }
 }
