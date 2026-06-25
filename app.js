@@ -134,6 +134,70 @@ function get30MinsLaterTimeString(timeStr) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+// Web Bluetooth API Reader for Xiaomi Thermometer
+async function readTemperatureFromBLE(targetInputId, buttonId) {
+  const btn = document.getElementById(buttonId);
+  const input = document.getElementById(targetInputId);
+  const originalText = btn.textContent;
+  
+  if (!('bluetooth' in navigator)) {
+    alert('Bu tarayıcı veya cihaz Bluetooth bağlantısını desteklemiyor (Chrome/Edge kullanın). iOS desteklenmez.');
+    return;
+  }
+
+  try {
+    btn.textContent = '⏳';
+    btn.disabled = true;
+
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [
+        { namePrefix: 'ATC' },
+        { namePrefix: 'LYWSD03' },
+        { namePrefix: 'Thermometer' }
+      ],
+      optionalServices: ['environmental_sensing', 'ebe0ccb0-7a0a-11e9-8f9b-00d056910805']
+    });
+
+    btn.textContent = '🔌 Bağlanıyor...';
+    const server = await device.gatt.connect();
+
+    btn.textContent = '📊 Okunuyor...';
+    let temp = null;
+
+    try {
+      const service = await server.getPrimaryService('environmental_sensing');
+      const characteristic = await service.getCharacteristic('temperature');
+      const value = await characteristic.readValue();
+      temp = value.getInt16(0, true) / 100;
+    } catch (err) {
+      console.log('Environmental sensing failed, trying Xiaomi service...', err);
+      const service = await server.getPrimaryService('ebe0ccb0-7a0a-11e9-8f9b-00d056910805');
+      const characteristic = await service.getCharacteristic('ebe0ccc1-7a0a-11e9-8f9b-00d056910805');
+      const value = await characteristic.readValue();
+      temp = value.getInt16(0, true) / 100;
+    }
+
+    if (temp !== null) {
+      input.value = temp.toFixed(1);
+      btn.textContent = '✅';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 2000);
+    } else {
+      throw new Error('Sıcaklık okunamadı.');
+    }
+
+    device.gatt.disconnect();
+
+  } catch (error) {
+    console.error('Bluetooth Hata:', error);
+    alert('Bağlantı hatası: ' + error.message);
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
 // Save & Load
 function saveLogs() {
   localStorage.setItem('temp_logs', JSON.stringify(logs));
@@ -208,7 +272,10 @@ function renderActiveLog() {
         <div class="input-row">
           <div class="input-group">
             <label for="closedTemp">Sıcaklık (°C)</label>
-            <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus>
+            <div style="display: flex; gap: 8px; width: 100%;">
+              <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus style="flex: 1;">
+              <button type="button" id="bleReadClosedBtn" class="btn btn-secondary" style="padding: 12px;" title="Termometreden Oku">🔵 Oku</button>
+            </div>
           </div>
           <div class="input-group">
             <label for="closedTime">Giriş Saati</label>
@@ -218,6 +285,10 @@ function renderActiveLog() {
         <button type="submit" class="btn">🚀 Kaydet ve Camı Aç</button>
       </form>
     `;
+
+    document.getElementById('bleReadClosedBtn').addEventListener('click', () => {
+      readTemperatureFromBLE('closedTemp', 'bleReadClosedBtn');
+    });
 
     document.getElementById('startLogForm').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -271,7 +342,10 @@ function renderActiveLog() {
           <div class="input-row">
             <div class="input-group">
               <label for="openTemp">30 Dakika Sonraki Sıcaklık (°C)</label>
-              <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus>
+              <div style="display: flex; gap: 8px; width: 100%;">
+                <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus style="flex: 1;">
+                <button type="button" id="bleReadOpenBtn" class="btn btn-secondary" style="padding: 12px;" title="Termometreden Oku">🔵 Oku</button>
+              </div>
             </div>
             <div class="input-group">
               <label for="openTime">Ölçüm Saati</label>
@@ -282,6 +356,10 @@ function renderActiveLog() {
         </form>
       </div>
     `;
+
+    document.getElementById('bleReadOpenBtn').addEventListener('click', () => {
+      readTemperatureFromBLE('openTemp', 'bleReadOpenBtn');
+    });
 
     // Live countdown calculations
     const [hours, minutes] = todayLog.closedTime.split(':').map(Number);
