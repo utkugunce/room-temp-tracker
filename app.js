@@ -256,6 +256,7 @@ function calculateStats() {
     document.getElementById('statsRecommendation').textContent = 'Kayıt girdikçe şekillenecek';
     document.getElementById('statsAvgDrop').textContent = '-.- °C';
     document.getElementById('statsBestDrop').textContent = '-.- °C';
+    document.getElementById('statsAvgHumChange').textContent = '--%';
     return;
   }
 
@@ -279,8 +280,22 @@ function calculateStats() {
 
   const avgDrop = totalDrop / completedLogs.length;
 
-  document.getElementById('statsAvgDrop').textContent = `${avgDrop > 0 ? '' : ''}${avgDrop.toFixed(1)} °C`;
+  document.getElementById('statsAvgDrop').textContent = `${avgDrop.toFixed(1)} °C`;
   document.getElementById('statsBestDrop').textContent = `${bestDrop.toFixed(1)} °C`;
+
+  // Humidity average change
+  const humLogs = completedLogs.filter(l =>
+    l.closedHum !== null && l.closedHum !== undefined &&
+    l.openHum !== null && l.openHum !== undefined
+  );
+  if (humLogs.length > 0) {
+    const totalHumChange = humLogs.reduce((sum, l) => sum + (l.openHum - l.closedHum), 0);
+    const avgHumChange = totalHumChange / humLogs.length;
+    const sign = avgHumChange > 0 ? '+' : '';
+    document.getElementById('statsAvgHumChange').textContent = `${sign}${avgHumChange.toFixed(1)}%`;
+  } else {
+    document.getElementById('statsAvgHumChange').textContent = 'Veri yok';
+  }
 
   // Recommendation
   let recommendationText = '';
