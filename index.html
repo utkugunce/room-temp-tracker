@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oda Sıcaklık Takipçisi</title>
+  <meta name="description" content="Oda sıcaklık farklarını cam açık ve kapalıyken takip edin.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#6366f1">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-wrapper">
+        <div class="logo-icon">💨</div>
+        <h1>Oda Derece <span>Takipçisi</span></h1>
+      </div>
+      <p class="subtitle">Cam açık mı kapalı mı daha serin? Gün gün karşılaştır.</p>
+    </header>
+
+    <main class="app-main">
+      <!-- STATS PANEL -->
+      <section class="stats-grid" id="statsGrid">
+        <div class="stat-card summary-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-info">
+            <span class="stat-label">Öneri / Sonuç</span>
+            <span class="stat-value" id="statsRecommendation">Veri bekleniyor...</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🌡️</div>
+          <div class="stat-info">
+            <span class="stat-label">Ort. Sıcaklık Düşüşü</span>
+            <span class="stat-value" id="statsAvgDrop">-.- °C</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-info">
+            <span class="stat-label">En İyi Soğuma</span>
+            <span class="stat-value" id="statsBestDrop">-.- °C</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOGGING SECTION -->
+      <section class="log-panel card">
+        <h2 id="logPanelTitle">Bugünkü Kayıt</h2>
+        <div id="activeLogContainer">
+          <!-- Active step will be injected here by app.js -->
+        </div>
+      </section>
+
+      <!-- HISTORY SECTION -->
+      <section class="history-panel card">
+        <div class="history-header">
+          <h2>Geçmiş Kayıtlar</h2>
+          <div class="history-actions">
+            <button id="exportBtn" class="btn btn-secondary btn-sm" title="Verileri Dışa Aktar">📤 Yedekle</button>
+            <button id="importBtn" class="btn btn-secondary btn-sm" title="Verileri İçe Aktar">📥 Geri Yükle</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Kapalı (Derece / Saat)</th>
+                <th>Açık (Derece / Saat)</th>
+                <th>Fark</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="historyList">
+              <!-- Entries will be injected here by app.js -->
+            </tbody>
+          </table>
+          <div id="noHistory" class="empty-state">
+            <p>Henüz hiç kayıt girilmemiş. İlk kaydını yukarıdan başlatabilirsin!</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>© 2026 Oda Sıcaklık Takipçisi PWA</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
