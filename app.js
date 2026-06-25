@@ -134,10 +134,11 @@ function get30MinsLaterTimeString(timeStr) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// Web Bluetooth API Reader for Xiaomi Thermometer
-async function readTemperatureFromBLE(targetInputId, buttonId) {
+// Web Bluetooth API Reader for Xiaomi Thermometer (Reads Temperature & Humidity)
+async function readSensorDataFromBLE(tempInputId, humInputId, buttonId) {
   const btn = document.getElementById(buttonId);
-  const input = document.getElementById(targetInputId);
+  const tempInput = document.getElementById(tempInputId);
+  const humInput = document.getElementById(humInputId);
   const originalText = btn.textContent;
   
   if (!('bluetooth' in navigator)) {
@@ -159,29 +160,76 @@ async function readTemperatureFromBLE(targetInputId, buttonId) {
 
     btn.textContent = '📊 Okunuyor...';
     let temp = null;
+    let hum = null;
 
+    // 1. Try standard environmental sensing service
     try {
       const service = await server.getPrimaryService('environmental_sensing');
-      const characteristic = await service.getCharacteristic('temperature');
-      const value = await characteristic.readValue();
-      temp = value.getInt16(0, true) / 100;
+      
+      try {
+        const characteristic = await service.getCharacteristic('temperature');
+        const value = await characteristic.readValue();
+        temp = value.getInt16(0, true) / 100;
+      } catch (err) {
+        console.warn('Could not read temperature from environmental_sensing', err);
+      }
+
+      try {
+        const characteristic = await service.getCharacteristic('humidity');
+        const value = await characteristic.readValue();
+        hum = value.getUint16(0, true) / 100;
+      } catch (err) {
+        console.warn('Could not read humidity from environmental_sensing', err);
+      }
     } catch (err) {
-      console.log('Environmental sensing failed, trying Xiaomi service...', err);
-      const service = await server.getPrimaryService('ebe0ccb0-7a0a-11e9-8f9b-00d056910805');
-      const characteristic = await service.getCharacteristic('ebe0ccc1-7a0a-11e9-8f9b-00d056910805');
-      const value = await characteristic.readValue();
-      temp = value.getInt16(0, true) / 100;
+      console.log('Environmental sensing service failed, trying Xiaomi service...', err);
+    }
+
+    // 2. Try Xiaomi custom service fallback
+    if (temp === null || hum === null) {
+      try {
+        const service = await server.getPrimaryService('ebe0ccb0-7a0a-11e9-8f9b-00d056910805');
+        
+        if (temp === null) {
+          try {
+            const characteristic = await service.getCharacteristic('ebe0ccc1-7a0a-11e9-8f9b-00d056910805');
+            const value = await characteristic.readValue();
+            temp = value.getInt16(0, true) / 100;
+          } catch (err) {
+            console.error('Xiaomi temp reading failed', err);
+          }
+        }
+
+        if (hum === null) {
+          try {
+            const characteristic = await service.getCharacteristic('ebe0ccc2-7a0a-11e9-8f9b-00d056910805');
+            const value = await characteristic.readValue();
+            if (value.byteLength === 2) {
+              hum = value.getUint16(0, true) / 100;
+            } else {
+              hum = value.getUint8(0);
+            }
+          } catch (err) {
+            console.error('Xiaomi hum reading failed', err);
+          }
+        }
+      } catch (err) {
+        console.error('Xiaomi custom service fallback failed', err);
+      }
     }
 
     if (temp !== null) {
-      input.value = temp.toFixed(1);
+      tempInput.value = temp.toFixed(1);
+      if (hum !== null) {
+        humInput.value = Math.round(hum);
+      }
       btn.textContent = '✅';
       setTimeout(() => {
         btn.textContent = originalText;
         btn.disabled = false;
       }, 2000);
     } else {
-      throw new Error('Sıcaklık okunamadı.');
+      throw new Error('Sıcaklık değeri okunamadı.');
     }
 
     device.gatt.disconnect();
@@ -192,9 +240,6 @@ async function readTemperatureFromBLE(targetInputId, buttonId) {
     btn.textContent = originalText;
     btn.disabled = false;
   }
-}
-
-  });
 }
 
 // Save & Load
@@ -262,17 +307,21 @@ function renderActiveLog() {
   const todayLog = logs.find(l => l.date === todayStr);
 
   if (!todayLog) {
-    // Step 1: Start entry (Window Closed temp)
+    // Step 1: Start entry (Window Closed temp & humidity)
     container.innerHTML = `
       <form id="startLogForm" class="logging-flow">
         <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 8px;">
-          Eve geldin. Cam kapalıyken oda sıcaklığını ve saati kaydet:
+          Eve geldin. Cam kapalıyken oda sıcaklığını, nemini ve saati kaydet:
         </p>
         <div class="input-row">
-          <div class="input-group" style="flex: 2;">
+          <div class="input-group" style="flex: 1.5;">
             <label for="closedTemp">Sıcaklık (°C)</label>
+            <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus style="width: 100%;">
+          </div>
+          <div class="input-group" style="flex: 1.5;">
+            <label for="closedHum">Nem (%)</label>
             <div style="display: flex; gap: 8px; width: 100%;">
-              <input type="number" id="closedTemp" step="0.1" placeholder="24.5" required autofocus style="flex: 1; min-width: 0;">
+              <input type="number" id="closedHum" step="1" placeholder="50" style="flex: 1; min-width: 0;">
               <button type="button" id="bleReadClosedBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>
             </div>
           </div>
@@ -286,12 +335,13 @@ function renderActiveLog() {
     `;
 
     document.getElementById('bleReadClosedBtn').addEventListener('click', () => {
-      readTemperatureFromBLE('closedTemp', 'bleReadClosedBtn');
+      readSensorDataFromBLE('closedTemp', 'closedHum', 'bleReadClosedBtn');
     });
 
     document.getElementById('startLogForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const closedTemp = parseFloat(document.getElementById('closedTemp').value);
+      const closedHum = document.getElementById('closedHum').value ? parseInt(document.getElementById('closedHum').value, 10) : null;
       const closedTime = document.getElementById('closedTime').value;
       
       // Request notification permission if not already decided
@@ -300,8 +350,10 @@ function renderActiveLog() {
       logs.push({
         date: todayStr,
         closedTemp,
+        closedHum,
         closedTime,
         openTemp: null,
+        openHum: null,
         openTime: null
       });
       saveLogs();
@@ -311,7 +363,7 @@ function renderActiveLog() {
     });
 
   } else if (todayLog.openTemp === null) {
-    // Step 2: Window opened, waiting/prompting for 30 minutes later temp
+    // Step 2: Window opened, waiting/prompting for 30 minutes later temp & humidity
     const targetTime = get30MinsLaterTimeString(todayLog.closedTime);
     
     // Clear any previous interval to prevent memory leaks
@@ -336,13 +388,17 @@ function renderActiveLog() {
         </div>
         <form id="completeLogForm" class="logging-flow">
           <p style="color: var(--text-secondary); font-size: 0.95rem;">
-            Camı açalı 30 dakika olduysa (veya ölçüm aldıysan) dereceyi gir:
+            Camı açalı 30 dakika olduysa (veya ölçüm aldıysan) verileri gir:
           </p>
           <div class="input-row">
-            <div class="input-group" style="flex: 2;">
-              <label for="openTemp">30 Dakika Sonraki Sıcaklık (°C)</label>
+            <div class="input-group" style="flex: 1.5;">
+              <label for="openTemp">Sıcaklık (°C)</label>
+              <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus style="width: 100%;">
+            </div>
+            <div class="input-group" style="flex: 1.5;">
+              <label for="openHum">Nem (%)</label>
               <div style="display: flex; gap: 8px; width: 100%;">
-                <input type="number" id="openTemp" step="0.1" placeholder="22.5" required autofocus style="flex: 1; min-width: 0;">
+                <input type="number" id="openHum" step="1" placeholder="45" style="flex: 1; min-width: 0;">
                 <button type="button" id="bleReadOpenBtn" class="btn btn-secondary btn-sm" title="Bluetooth ile Oku">🔵 Oku</button>
               </div>
             </div>
@@ -357,7 +413,7 @@ function renderActiveLog() {
     `;
 
     document.getElementById('bleReadOpenBtn').addEventListener('click', () => {
-      readTemperatureFromBLE('openTemp', 'bleReadOpenBtn');
+      readSensorDataFromBLE('openTemp', 'openHum', 'bleReadOpenBtn');
     });
 
     // Live countdown calculations
@@ -402,9 +458,11 @@ function renderActiveLog() {
     document.getElementById('completeLogForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const openTemp = parseFloat(document.getElementById('openTemp').value);
+      const openHum = document.getElementById('openHum').value ? parseInt(document.getElementById('openHum').value, 10) : null;
       const openTime = document.getElementById('openTime').value;
 
       todayLog.openTemp = openTemp;
+      todayLog.openHum = openHum;
       todayLog.openTime = openTime;
       saveLogs();
     });
@@ -421,6 +479,19 @@ function renderActiveLog() {
       resultMsg = `Cam açıldıktan sonra oda sıcaklığı değişmedi.`;
     }
 
+    const humDiff = todayLog.openHum !== null && todayLog.closedHum !== null && todayLog.openHum !== undefined && todayLog.closedHum !== undefined ? todayLog.openHum - todayLog.closedHum : null;
+    let humMsg = '';
+    if (humDiff !== null) {
+      if (humDiff > 0) {
+        humMsg = ` Nem oranı ise <strong>%${Math.abs(humDiff)} arttı</strong>.`;
+      } else if (humDiff < 0) {
+        humMsg = ` Nem oranı ise <strong>%${Math.abs(humDiff)} düştü</strong>.`;
+      } else {
+        humMsg = ` Nem oranı değişmedi.`;
+      }
+    }
+    resultMsg += humMsg;
+
     container.innerHTML = `
       <div class="today-completed">
         <p>🎉 <strong>Bugünkü kayıt tamamlandı!</strong></p>
@@ -432,8 +503,9 @@ function renderActiveLog() {
     `;
 
     document.getElementById('editTodayBtn').addEventListener('click', () => {
-      if (confirm('Bugünkü kaydı düzenlemek için açmak istiyor musun? (Açık derece silinecektir)')) {
+      if (confirm('Bugünkü kaydı düzenlemek için açmak istiyor musun? (Açık değerler silinecektir)')) {
         todayLog.openTemp = null;
+        todayLog.openHum = null;
         todayLog.openTime = null;
         saveLogs();
       }
@@ -458,8 +530,13 @@ function renderHistory() {
   empty.style.display = 'none';
 
   list.innerHTML = sortedLogs.map(l => {
-    const closedText = l.closedTemp !== null ? `${l.closedTemp.toFixed(1)}°C` : '-';
-    const openText = l.openTemp !== null ? `${l.openTemp.toFixed(1)}°C` : '-';
+    const closedTempText = l.closedTemp !== null ? `${l.closedTemp.toFixed(1)}°C` : '-';
+    const closedHumText = (l.closedHum !== null && l.closedHum !== undefined) ? ` (%${l.closedHum})` : '';
+    const closedFull = closedTempText + closedHumText;
+
+    const openTempText = l.openTemp !== null ? `${l.openTemp.toFixed(1)}°C` : '-';
+    const openHumText = (l.openHum !== null && l.openHum !== undefined) ? ` (%${l.openHum})` : '';
+    const openFull = openTempText + openHumText;
     
     let diffText = '-';
     let diffClass = 'same';
@@ -482,11 +559,11 @@ function renderHistory() {
       <tr>
         <td style="font-weight: 500;">${formatDateTurkish(l.date)}</td>
         <td>
-          <span class="temp-badge closed">${closedText}</span>
+          <span class="temp-badge closed">${closedFull}</span>
           <span class="time-label">${l.closedTime || ''}</span>
         </td>
         <td>
-          <span class="temp-badge open">${openText}</span>
+          <span class="temp-badge open">${openFull}</span>
           <span class="time-label">${l.openTime || ''}</span>
         </td>
         <td>
