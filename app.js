@@ -150,11 +150,7 @@ async function readTemperatureFromBLE(targetInputId, buttonId) {
     btn.disabled = true;
 
     const device = await navigator.bluetooth.requestDevice({
-      filters: [
-        { namePrefix: 'ATC' },
-        { namePrefix: 'LYWSD03' },
-        { namePrefix: 'Thermometer' }
-      ],
+      acceptAllDevices: true,
       optionalServices: ['environmental_sensing', 'ebe0ccb0-7a0a-11e9-8f9b-00d056910805']
     });
 
